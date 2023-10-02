@@ -196,3 +196,66 @@ Misma idea de mezclar según el bit del bloque representado por el inmediato. Si
 ![](imagenes/conversiones-redondeo.png){ width=75% }
 
 ![](imagenes/conversiones.png){ width=75% }
+
+# Comandos utiles de gdb
+
+| comando | descripcion  |
+|----------|----------------------|
+| b < archivo >:< linea > | pone un break en el archivo y linea especificada|
+|  |  |
+| info breaks | lista todos los breakpoints |
+|  |  |
+| delete n | elimina el breakpoint n |
+|  |  |
+| r | corre el programa |
+|  |  |
+| n | ejecuta la siguiente linea |
+|  |  |
+| c | continua la ejecución |
+|  |  |
+| gdb --args < archivo > arg1 arg2 arg3 | ejecuta el archivo pasandole argumentos |
+|  |  |
+| info registers < registro > | devuelve el valor del registro, podemos pasarle tambien los eflags |
+|  |  |
+| info locals | lista las variables del stack frame actual |
+|  |  |
+| info args | lista los argumentos del stack frame actual |
+|  |  |
+| backtrace | imprime el backtrace del stack entero |
+|  |  |
+| backtrace n | idem pero solo los n ultimos stack frames |
+|  |  |
+| backtrace -n | idem pero los primeros n stack frames |
+|  |  |
+| backtrace full | imprime el backtrace del stack entero con sus variables locales |
+|  |  |
+| up / up n | se mueve al stack frame superior (o n stack frames arriba) (para imprimir variables locales de otro stack frame si se quiciera) |
+|  |  |
+| down / down n | se mueve al stack frame inferior (o n stack frames abajo) |
+|  |  |
+| x < addr > | imprime el valor de memoria especificado por la dirección addr |
+|  |  |
+| x/nfu < addr > | idem pero puedo especificar la cantidad n de bloques en unidad "u" a imprimir; el formato f; la unidad u que puede ser b (byte), h (halfword, 2 bytes), w (word 4 bytes), g (giant words, 8 bytes). [mas info](https://sourceware.org/gdb/onlinedocs/gdb/Memory.html) | 
+|  |  |
+| print < expresion > | imprime el valor de la expresión |
+|  |  |
+| print /f < expresion > | idem con el formato especificado |
+|  |  |
+| display < expresion > | habilita la impresión automática por cada paso del debuger |
+|  |  |
+| display/f < expresion > | idem con el formato especificado |
+|  |  |
+| undisplay < expresion > | deshabilita la impresión automática de la expresión |
+|  |  |
+
+### formatos
+- o: octal
+- x: hexadecimal
+- d: decimal
+- u: unsigned decimal
+- t: binary
+- f: floating point
+- a: address
+- c: char
+- s: string
+- i: instruction
