@@ -253,10 +253,10 @@ El task register guarda el selector de segmento de la GDT en donde se encuentra 
 Al crear una tarea hay que setear los valores iniciales de la TSS: eip, esp, ebp, esp0, cs, ds, es, fs, gs, ss, ss0, cr3, eflags (en 0x00000202)
 
 ![](img/TSS.png){width=50%}
+![](img/TSS_descriptor.png){width=50%}
+
 
 Cada tarea tiene su correspondiente entrada en la GDT
-
-![](img/TSS_descriptor.png){width=50%}
 
 - *B (busy)*: indica si la tarea está siendo ejecutada, inicializamos en 0.
 
@@ -302,3 +302,113 @@ jmp SELECTOR_TAREA_IDLE:0
 La TSS tiene guardados el selector de segmento del stack de nivel 0 y el esp0 el stack pointer de nivel 0. Con esto si se produce una interrupción de nivel 0 cuando se está ejecutando una tarea de nivel de privilegio 3, el kernel puede usar dicho stack. Con esto se gana seguridad.
 
 El mecanismo consiste en cargar el registro ss con el ss0 y esp con esp0 y guardar en dicho stack el ss y el esp del procedimiento interrumpido además de la información normal de interrupción. (ver imagen de como queda los stacks en la parte de interrupciones)
+
+# Funciones del taller
+
+## idt.c
+`void idt_init()`: Arma las entradas de interrupciones.
+
+## isr.asm
+* `_isr14`: Rutina de atención del page fault y llama al page_fault_handler.
+
+* `_isr32`: Rutina de atención del reloj.
+
+* `_isr33`: Rutina de atención del teclado.
+
+* `_isr88`: Syscall para que una tarea dibuje en su pantalla.
+
+* `_isr98`: Syscall que pone 98 en eax.
+
+## keyboard\_input.c
+* `void process_scancode(uint8_t scancode)`: Imprime el caracter correspondiente al scancode.
+
+## mmu.c
+* `static inline void* kmemset(void* s, int c, size_t n)`: Asigna el valor `c` a `n` bytes a
+partir de `s`. O sea, `s[0] = s[1] = ... = s[n-1] = c`. Devuelve puntero a ese rango (`s`).
+
+* `static inline void zero_page(paddr_t addr)`: Setea en 0 la página a partir de `addr`
+
+* `paddr_t mmu_next_free_kernel_page()`: Devuelve la dirección de memoria de comienzo para
+la próxima página libre de kernel.
+
+* `paddr_t mmu_next_free_user_page()`: Devuelve la dirección de memoria de comienzo para
+la próxima página libre de usuario.
+
+* `paddr_t mmu_init_kernel_dir()`: Inicializa las estructuras de paginación vinculadas
+al kernel y realiza el identity mapping. Devuelve la dirección de memoria de la página
+donde se encuentra el directorio de páginas usado por el kernel.
+
+* `void mmu_map_page(uint32_t cr3, vaddr_t virt, paddrt_t phy, uint32_t attrs)`:
+Agrega lo necesario a las estructuras de paginación de modo que cuando uno intende acceder
+a la dirección virtual `virt` y CR3 valga `cr3`, te lleve a la dirección física `phy`, la
+cual estará en una página con los atributos `attrs` (PRESENT, READ/WRITE y/o USER).
+
+* `void mmu_unmap_page(uint32_t cr3, vaddr_t virt)`: Elimina la entrada vinculada a la
+dirección virtual en la tabla de páginas correspondiente.
+
+* `void copy_page(paddr_t dst_addr, paddr_t src_addr)`: Copia el contenido de la página
+física localizada en la dirección `src_addr` a la página física ubicada en `dst_addr`.
+
+* `paddr_t mmu_init_task_dir(paddr_t phy_start)`: Inicializa las estructuras de paginación
+vinculadas a una tarea cuyo código se encuentra en la dirección phy_start.
+
+* `bool page_fault_handler(vaddr_t virt)`: Devuelve true si se atendió el page fault y puede
+continuar la ejecución.
+
+## pic.c
+* `void outb(uint32_t port, uint8_t data)`: Pone el valor `data` por el puerto de entrada/salida `port`.
+* `void pic_reset()`
+* `void pic_enable()`: Habilita el PIC1 y el PIC2
+* `void pic_disable()`: Deshabilita el PIC1 y el PIC2
+
+## sched.c
+
+* `uint8_t sched_add_task(uint16_t selector)`: Agrega una tarea al primer slot libre del scheduler
+dado el selector de la GDT de la tarea. Devuelve el identificador de la tarea creada.
+
+* `void sched_disable_task(int8_t task_id)`: Deshabilita una tarea en el scheduler
+
+* `uint16_t sched_next_task()`: Obtiene la siguiente tarea disponible, si no hay tareas
+disponibles, devuelve el task\_id de la tarea idle.
+
+## screen.c
+* `void print(const char* text, uint32_t x, uint32_t y, uint16_t attr)`:
+Imprime `text` en la posición (`x`, `y`). `attr` son los colores.
+
+* `void print_dec(uint32_t numero, uint32_t size, uint32_t x, uint32_t y, uint16_t attr)`
+Imprime un decimal de `size` caracteres.
+
+* `void print_hex(uint32_t numero, uint32_t size, uint32_t x, uint32_t y, uint16_t attr)`
+Imprime un hexadecimal de `size` caracteres.
+
+* `void screen_draw_box(uint32_t fInit, uint32_t cInit, uint32_t fSize,
+uint32_t cSize, uint8_t character, uint8_t attr)`:
+Dibuja una caja.
+
+## tasks.c
+* `static int8_t create_task(tipo_e tipo)`: Crea una task de tipo A o B y devuelve su task\_id.
+* `void tasks_init()`: Inicializa el sistema de manejo de tareas
+
+## tss.c
+* `gdt_entry_t tss_gdt_entry_for_task(tss_t* tss)`: Crea un descriptor de TSS en base a un TSS.
+
+* `void tss_set(tss_t tss, int8_t task_id)`: Define el valor de la tss para el índice `task_id`.
+
+* `tss_t tss_create_user_task(paddr_t code_start)`: Crea una TSS con los valores por defecto y el
+EIP `code_start`.
+
+## task\_lib.h
+
+* `static void task_sleep(int ticks)`: Suspende el proceso por una cantidad de ticks del reloj.
+
+* `static void task_print(screen output, const char* text, uint32_t x, uint32_t y, uint8_t attr)`:
+Imprime texto en `output`.
+
+* `static void task_print_dec(screen output, uint32_t numero, uint32_t size, uint32_t x,
+uint32_t y, uint8_t attr)`: Similar que `print_dec`
+
+* `static void task_print_hex(screen output, uint32_t numero, uint32_t size, uint32_t x,
+uint32_t y, uint8_t attr)`: Similar que `print_hex`
+
+* `static void task_draw_box(screen out, uint32_t x_start, uint32_t y_start, uint32_t width,
+uint32_t height, uint8_t character, uint8_t attr)`: Similar que `screen_draw_box`
