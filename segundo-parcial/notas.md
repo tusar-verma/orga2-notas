@@ -153,6 +153,77 @@ void pic_disable() {
 ```
 
 ## Paginación
+- Cada proceso tiene un direccionamiento virtual que se traduce a las direcciones físicas. Esto permite un manejo más eficiente de la memoria ya que los procesos se pueden abstraer de qué direcciones les corresponde realmente. 
+- Para la traducción se usa la *dirección virtual* y las estructuras de paginación: *directorio de tablas y tabla de paginas*.
+- La ubicación del directoria de páginas correspondiente al proceso actual se guarda en el registro CR3. 
+- Se puede definir paginas de 4KB o 4MB.
+- Para activar paginación se debe activar el bit CR0.PG
 
+![](img/traduccion_paginacion.png){width=60%}
+
+Con el CR3 se ubica el directorio de paginas; con los 10 bits más significativos de la dirección virtual se indexa dentro del directorio (obtenemos la dirección de la tabla de páginas); con los 10 bits siguientes se indexa en la tabla (obtenemos la dirección de la tabla); con los últimos 12 bits se indexa dentro de la página (obtenemos el byte buscado).
+
+Las entradas del directorio y la tabla de páginas son descriptores de tablas y páginas respectivamente que guardan 20 bits de dirección (ya que los ultimos 12 estan en 0 porque una página ocupa 4KB = 2^12) y algunos atributos. Cada entry ocupa 4Bytes, por lo que hay 1024 entries = 2^10. Luego en la página hay 4KB = 2^12 de bytes direccionables.
+
+*virt = dir(10bits) | table(10bits) | offset(12bits)*
+```C
+pd = CR3 & 0xFFFFF000
+pd_index = (virt >> 22) & 0x3FF
+pt = pd[pd_index] & 0xFFFFF000
+pt_index = (virt >> 12) & 0x3FF
+page_addr := pt[pt_index] & 0xFFFFF000
+offset = virt & 0xFFF
+phys = page_addr | offset
+```
+
+![](img/cr3_pde_pte.png){width=75%}
+
+
+- PDE: page directory entry, PTE: page table entry
+- PCD: Page-level cache disable
+- PWT: Page-level write-through
+- U/S: 0 Supervisor 1 User
+- A: Accessed (si se usó para una traducción en caso de PDE y si SW accedió a la página en caso de PTE).
+- D: Dirty si se escribió
+- G: global, ignorado si CR4.PGE = 0
+- R/W: Read/Write 1 o solo lectura en 0
+
+### TLB
+El procesador cuenta con una tabla de traducciones pre-computadas
+(translation lookaside buffer), que almacena las últimas  traducciones realizadas para no tener que volver a
+computarlas.
+Cuando realicemos un cambio en nuestras estructuras de
+paginación es necesario forzar una limpieza del mismo para evitar
+que las direcciones pre-computadas que ya no son válidas se sigan
+empleando, para esto realizamos un intercambio del registro CR3
+con un valor temporal y luego lo restauramos. (tlbflush() definido por la cátedra, que es un mov a CR3)
+
+### Page fault
+El registro CR2 contiene la dirección lineal que la causó. Podemos definir un handler que reciba el valor de cr2 y luego se encargue de inicializar las estructuras necesarias para obtener la página pedida.
+
+```asm
+global _isr14
+
+_isr14:
+    pushad
+    mov eax, cr2
+    push eax
+    ; devuelve true si pudo atenderla (creo la página), false sino
+    call page_fault_handler
+    ; saco el valor pusheado
+    add esp, 4
+    cmp al, TRUE
+    je .fin
+    .ring0_exception:
+    ; Si llegamos hasta aca es que cometimos un page fault fuera del area compartida.
+    call kernel_exception
+    jmp $
+    
+    .fin:
+    popad
+    add esp, 4 ; error code
+    iret
+
+```
 
 ## Tareas
