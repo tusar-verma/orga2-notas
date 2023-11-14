@@ -20,7 +20,7 @@ Segmento = 0x12F3. Offset = 0x4B27
 - 4GB de memoria para 32 bits
 - 4 niveles de privilegio, atención a interrupciones con privilegio.
 
-## Segmentación
+# Segmentación
 
 - **Linear Address space**: memoria direccionable por el procesador. Generalmente se divide en segmentos.
 - **Dirección lógica**: Consiste en un **selector de segmento** y un **offset**, y sirve para direccionar a un byte dentro de un segmento.
@@ -57,7 +57,7 @@ Se carga con la instrucción lgdt [mem], que recibe una dirección en la que tom
 
 ![](img/registros_segmento.png){width=50%}
 
-## Interrupciones 
+# Interrupciones 
 
 - Se define una identidad numérica para cada interrupción (vectorización) y utiliza una tabla de descriptores
 donde para cada índice, o identidad, se decide:
@@ -153,7 +153,7 @@ void pic_disable() {
 }
 ```
 
-## Paginación
+# Paginación
 - Cada proceso tiene un direccionamiento virtual que se traduce a las direcciones físicas. Esto permite un manejo más eficiente de la memoria ya que los procesos se pueden abstraer de qué direcciones les corresponde realmente. 
 - Para la traducción se usa la *dirección virtual* y las estructuras de paginación: *directorio de tablas y tabla de paginas*.
 - La ubicación del directoria de páginas correspondiente al proceso actual se guarda en el registro CR3. 
