@@ -98,7 +98,8 @@ Con lidt [mem] se carga el idtr. Consiste en 48 bits, el del base address indica
 
 ![](img/idtr.png){width=55%}
 
-![](img/idt_descriptors.png){width=60%}
+![](img/task_interrupt_gate.png){width=50%}
+![](img/trap_gate.png){width=50%}
 
 los bits 12 a 8 indican el type, ver tabla de gdt para types de sistema. El que usamos para interrupciones de 32 bits es el 1110
 
@@ -227,3 +228,77 @@ _isr14:
 ```
 
 ## Tareas
+Una tarea es una unidad de trabajo que el procesador puede
+despachar, ejecutar y supender. Puede ser usada para ejecutar un
+programa. El scheduler se encarga de administrar que tarea ejecuta el procesador en cada tic del reloj. Dos tareas pueden tener el mismo código de programa pero tener contextos de ejecución distintos. Cada tarea va a tener:
+- *Espacio de Ejecución*: Páginas mapeadas donde va
+a tener el código, datos y pilas. Podes definir un page directory para cada tarea o compartir una entre varias.
+- *Segmento de Estado (TSS)*: Una región de memoria que
+almacen el estado de una tarea, a la espera de iniciarse o al
+momento de ser desalojada del procesador, y con un formato
+específico para que podamos iniciarla/reanudarla. Guarda los Registros de propósito general, Registros de segmento de la tarea y segmento de la pila de nivel 0, Flags y el CR3 correspondiente a la tarea.
+
+![](img/estructura_tarea.png){width=35%}
+
+### Definición de tareas
+
+Cada vez que se cambia de tarea se produce un cambio de contexto: se guarda la información de la tarea actual y se carga la de la próxima tarea a ejectuarse provista por el scheduler.
+
+![](img/task_register.png){width=60%}
+
+Las tareas se definen en la GDT, una task entry guarda la información necesaria para localizar la TSS de la tarea.
+
+El task register guarda el selector de segmento de la GDT en donde se encuentra el TSS descriptor de la tarea actual.
+
+Al crear una tarea hay que setear los valores iniciales de la TSS: eip, esp, ebp, esp0, cs, ds, es, fs, gs, ss, ss0, cr3, eflags (en 0x00000202)
+
+![](img/TSS.png){width=50%}
+
+Cada tarea tiene su correspondiente entrada en la GDT
+
+![](img/TSS_descriptor.png){width=50%}
+
+- *B (busy)*: indica si la tarea está siendo ejecutada, inicializamos en 0.
+
+### Cambio de tareas
+Consiste en hacer un jmp far selector_tarea:offset donde el offset es ignorado y puede ser cualquier numero
+
+```asm
+sched_task_offset: dd 0xFFFFFFFF
+sched_task_selector: dw 0xFFFF
+
+global _isr32
+_isr32:
+  pushad
+  call pic_finish1
+  ; devuelve el selector de la proxima tarea
+  call sched_next_task
+
+  ; str: store task register, guarda el valor de tr en cx
+  str cx
+  ; compara si no es el mismo segmento que la tarea siguiente dada por el scheduler
+  cmp ax, cx
+  je .fin
+  ; ejecuta el cambio de contexto
+  mov word [sched_task_selector], ax
+  jmp far [sched_task_offset]
+  .fin:
+  popad
+  iret
+
+```
+
+### Tarea inicial
+El procesador tiene que estar siempre ejecutando una tarea, se definen la tarea inicial cómo la que se ejecuta cuando arranca el procesaor y la tarea idle como la tarea que ejecuta cuando no hay nada que hacer.
+```asm
+; carga en el tr el selector de segmento guardado en ax
+; con esto podemos cargar la tarea inicial
+ltr ax
+; con el jmp far podemos cargar la tarea idle, esto produce el cambio de contexto
+jmp SELECTOR_TAREA_IDLE:0
+```
+
+### Interrupciones y privilegios
+La TSS tiene guardados el selector de segmento del stack de nivel 0 y el esp0 el stack pointer de nivel 0. Con esto si se produce una interrupción de nivel 0 cuando se está ejecutando una tarea de nivel de privilegio 3, el kernel puede usar dicho stack. Con esto se gana seguridad.
+
+El mecanismo consiste en cargar el registro ss con el ss0 y esp con esp0 y guardar en dicho stack el ss y el esp del procedimiento interrumpido además de la información normal de interrupción. (ver imagen de como queda los stacks en la parte de interrupciones)
